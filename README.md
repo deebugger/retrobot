@@ -107,7 +107,3 @@ Appropriately, Retrobot has three phases:
 - `@retrobot status` will provide you with the status of the retro session in this channel, if any is running
 - `@retrobot channels` will list all the channels where an active retro session is currently runnning
 - `@retrobot terminate session` will unceremoniously end the current session, leaving nothing behind (dangerous, but useful for reseting a session without going through all the motions)
-
----
-
-Author: Dror Ben-Gai <deebugger@gmail.com>
