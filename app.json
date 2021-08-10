@@ -1,0 +1,23 @@
+{
+  "name": "Retrobot",
+  "description": "Slack bot for the 2020s",
+  "keywords": [
+    "slack",
+    "bot",
+    "retro",
+    "retrobot",
+    "retrospective"
+  ],
+  "repository": "https://github.com/deebugger/retrobot",
+  "env": {
+    "SLACK_BOT_TOKEN": {
+      "description": "Your bot (xoxb) token, taken from the OAuth & Permissions page",
+      "value": ""
+    },
+    "SLACK_SIGNING_SECRET": {
+      "description": "Your signing secret, taken from the Basic Information page",
+      "value": ""
+    }
+  },
+  "image": "heroku/nodejs"
+}

@@ -1,0 +1,30 @@
+{
+  "name": "retrobot",
+  "version": "1.0.0",
+  "description": "Slack retrobot for the 2020s",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deebugger/retrobot.git"
+  },
+  "keywords": [
+    "slack",
+    "bot",
+    "retro",
+    "retrobot",
+    "retrospective"
+  ],
+  "author": "Dror Ben-Gai <deebugger@gmail.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/deebugger/retrobot/issues"
+  },
+  "homepage": "https://github.com/deebugger/retrobot#readme",
+  "dependencies": {
+    "@slack/bolt": "^3.5.0",
+    "debug": "^4.3.2"
+  }
+}
