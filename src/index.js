@@ -71,24 +71,37 @@ const app = new App({
   signingSecret: process.env.SLACK_SIGNING_SECRET
 })
 
-app.message(directMention(), 'start', start)
-app.message(directMention(), 'stop', stop)
-app.message(directMention(), 'sum', summary)
-app.message(directMention(), 'help', help)
-app.message(directMention(), 'wake up', wakeup)
-app.message(directMention(), 'wakeup', wakeup)
-app.message(directMention(), 'status', status)
-app.message(directMention(), 'channels', channels)
-app.message(directMention(), 'terminate session', terminateSession)
-app.message(handleDirectMessage)
+app.message(directMention(), checkDirectChannel(false), erroHandler, /start$/, start)
+app.message(directMention(), checkDirectChannel(false), erroHandler, /stop$/, stop)
+app.message(directMention(), checkDirectChannel(false), erroHandler, /sum( [\d]+)?$/, summary)
+app.message(directMention(), checkDirectChannel(false), erroHandler, /help$/, help)
+app.message(directMention(), checkDirectChannel(false), erroHandler, /wake up$/, wakeup)
+app.message(directMention(), checkDirectChannel(false), erroHandler, /status$/, status)
+app.message(directMention(), checkDirectChannel(false), erroHandler, /channels$/, channels)
+app.message(directMention(), checkDirectChannel(false), erroHandler, /terminate session$/, terminateSession)
+app.message(checkDirectChannel(true), erroHandler, handleDirectMessage)
+
+// /////////////////////////////////////////////
+// create middleware for checking direct channel
+function checkDirectChannel(direct) {
+  return async (params) => {
+    if ((direct && params.event.channel_type === 'im') || (!direct && params.event.channel_type !== 'im')) {
+      await params.next()
+    }
+  }
+}
+
+async function erroHandler(params) {
+  try {
+    await params.next()
+  } catch (err) {
+    debug('Error', { err })
+  }
+}
 
 // ////////////////////////////////////////////////
 // start a new retro session in the current channel
 async function start(params) {
-  if (params.event.channel_type === 'im') {
-    return
-  }
-
   const channelId = params.payload.channel
   if (retroList[channelId]) {
     if (retroList[channelId].isInRetro()) {
@@ -115,9 +128,10 @@ async function handleStart(params) {
   await params.say(':military_helmet: We\'re starting a new retrospective session - helmets on!')
 
   const userList = await getConsciousUserList(params)
-  Promise.all(userList.map(async user => {
+  for (const index in userList) {
+    const user = userList[index]
     retroList[channelId].addUser(user)
-    return params.client.chat.postMessage({
+    params.client.chat.postMessage({
       channel: user.userId,
       text: `:ear: Ok, I'm all ears!
 Tell me what worked well (start with a \`+\`) and what needs improvement (start with a \`-\`).
@@ -125,8 +139,10 @@ Each item should be a new line (separated by ENTER).
 If you made a mistake, you can edit or delete a message - I'll handle the logistics.
 
 Pro tip: Don't put a space between the \`-\` sign and your first word - it'll turn into a bulleted list (e.g.: \`-no one ate my broccoli cake :-(\`)`
+    }).catch(err => {
+      debug('Error posting message to user', { err })
     })
-  }))
+  }
 }
 
 // get a list of all conscious users (active, non-DND channel-mambers), expect the bot user itself
@@ -178,16 +194,12 @@ async function getConsciousUser(userId, client) {
 // ///////////////////////////////////////////////////
 // stop a running retro session in the current channel
 async function stop(params) {
-  if (params.event.channel_type === 'im') {
-    return
-  }
-
   const channelId = params.payload.channel
 
   if (!retroList[channelId] || !retroList[channelId].isInRetro()) {
     await params.client.chat.postMessage({ channel: channelId, linkNames: true, text: `:face_with_raised_eyebrow: That's funny..
 I don't remember running an active retro for this channel at this time.
-Maybe you forgot to start one? You can do that by typing \`<@${params.context.botUserId}> start\`)` })
+Maybe you forgot to start one? You can do that by typing \`<@${params.context.botUserId}> start\`` })
     return
   }
 
@@ -203,12 +215,16 @@ async function handleStop(params) {
   retroList[channelId].stopRetro()
 
   const users = retroList[channelId].getUsers()
-  Promise.all(Object.values(users).map(async user => {
-    return params.client.chat.postMessage({
+  for (const index in users) {
+    const user = users[index]
+    params.client.chat.postMessage({
       channel: user.userId,
       text: `:hand: We're done here!
-Get back to the retro channel at <#${channelId}>` })
-  }))
+Get back to the retro channel at <#${channelId}>`
+    }).catch(err => {
+      debug('Error posting message to user', { err })
+    })
+  }
 
   printFeedback(params)
 }
@@ -219,17 +235,17 @@ async function printFeedback(params) {
   await params.say(`====================================================================================================
 :sparkles: What worked well :sparkles:`)
   const workedWellFeedback = shuffleArray(retroList[channelId].getWorkedWellFeedback())
-  await Promise.all(workedWellFeedback.map(async (feedback) => {
-    return params.say(`${feedback.text} (${feedback.user.name})`)
-  }))
+  for (const index in workedWellFeedback) {
+    params.say(`${workedWellFeedback[index].text} (${workedWellFeedback[index].user.name})`)
+  }
 
   await params.say(`====================================================================================================
 :construction: What needs improvement :construction:`)
   const needsImprovementFeedback = shuffleArray(retroList[channelId].getNeedsImprovementFeedback())
-  await Promise.all(needsImprovementFeedback.map(async (feedback) => {
-    const msg = await params.say(`${feedback.text} (${feedback.user.name})`)
+  for (const index in needsImprovementFeedback) {
+    const msg = await params.say(`${needsImprovementFeedback[index].text} (${needsImprovementFeedback[index].user.name})`)
     retroList[channelId].trackMessage(msg)
-  }))
+  }
 
   await params.say(`====================================================================================================
 :hourglass_flowing_sand: It's go time - start voting!
@@ -246,10 +262,6 @@ function shuffleArray(array) {
 // ///////////////////////////////////////////////
 // sum up the retro session in the current channel
 async function summary(params) {
-  if (params.event.channel_type === 'im') {
-    return
-  }
-
   const channelId = params.payload.channel
 
   if (!retroList[channelId]) {
@@ -286,7 +298,7 @@ async function handleSummary(params) {
   const withPlusones = reactions
     .map(msg => ({
       text: msg.message?.text,
-      plusones: msg.message?.reactions?.filter(r => r.name === '+1') || []
+      plusones: msg.message?.reactions?.filter(r => r.name === '+1' || r.name.startsWith('+1:')) || []
     }))
     .filter(r => r.plusones.length > 0)
     .slice(0, maxUpvotes)
@@ -311,10 +323,6 @@ Well, I guess this is goodbye.. See you next time! :wave: `)
 // ////////////////////
 // print some help text
 async function help(params) {
-  if (params.event.channel_type === 'im') {
-    return
-  }
-
   await params.say(`:paperclip: It looks like you need some help!
 
 Here are the commands I support, and how to use them:
@@ -333,20 +341,12 @@ I hope that helped!`)
 // ////////////////
 // wake retrobot up
 async function wakeup(params) {
-  if (params.event.channel_type === 'im') {
-    return
-  }
-
   await params.say(`I'm up, I'm up! I wasn't sleeping anyway.. :yawning_face:`)
 }
 
 // /////////////////////////////////////////////////////////
 // print the status of the retro in this channel (if exists)
 async function status(params) {
-  if (params.event.channel_type === 'im') {
-    return
-  }
-
   const channelId = params.payload.channel
   if (!retroList[channelId]) {
     await params.say(':shrug: Nope, nada, zilch - no retro sessions in this channel.')
@@ -360,35 +360,28 @@ async function status(params) {
 // ///////////////////////////////////////////////////////////////
 // list all the channels where a retro session is now taking place
 async function channels(params) {
-  if (params.event.channel_type === 'im') {
-    return
-  }
-
   const channels = Object.keys(retroList)
   if (channels.length === 0) {
     await params.say(':shrug: There are no retro sessions currently running.')
     return
   }
 
-  handleChannels(params)
+  return handleChannels(params)
 }
 
 async function handleChannels(params) {
-  debug('Printing channels output')
   const channels = Object.keys(retroList)
 
   await params.say(':mag_right: Here are the channels in which a retro session is currently in progress:')
-  Promise.all(channels.map(async channelId =>
-    (params.say(`<#${channelId}> (${retroList[channelId].isInRetro() ? 'getting feedback' : 'voting'})`))))
+  for (const index in channels) {
+    const channelId = channels[index]
+    params.say(`<#${channelId}> (${retroList[channelId].isInRetro() ? 'getting feedback' : 'voting'})`)
+  }
 }
 
 // ///////////////////////////////////////////////////////////////////////////////////////////////////////
 // immediately end the retro session in the current channel (useful when stuff goes wrong for some reason)
 async function terminateSession(params) {
-  if (params.event.channel_type === 'im') {
-    return
-  }
-
   const channelId = params.payload.channel
 
   if (!retroList[channelId]) {
@@ -397,19 +390,22 @@ async function terminateSession(params) {
   }
 
   debug('Terminating retro session', channelId)
-  handleTerminateSession(params)
+  return handleTerminateSession(params)
 }
 
 async function handleTerminateSession(params) {
   const channelId = params.payload.channel
 
   const users = retroList[channelId].getUsers()
-  Promise.all(Object.values(users).map(async user => {
-    return params.client.chat.postMessage({
-      channel: user.userId,
+  for (const index in users) {
+    params.client.chat.postMessage({
+      channel: users[index].userId,
       text: `:warning: Someone has cut the session short!
-Get back to the retro channel at <#${channelId}>` })
-  }))
+Get back to the retro channel at <#${channelId}>`
+    }).catch(err => {
+      debug('Error posting message to user', { err })
+    })
+  }
 
   delete retroList[channelId]
 
@@ -419,10 +415,6 @@ Get back to the retro channel at <#${channelId}>` })
 // ///////////////////////////////////////////////////////////////
 // handle (only) direct messages from users during a retro session
 async function handleDirectMessage(params) {
-  if (params.event.channel_type !== 'im') {
-    return
-  }
-
   const retroChannels = Object.keys(retroList)
   if (retroChannels.length === 0) {
     await params.say(':no_entry_sign: Sorry - there aren\'t any retro sessions in progress right now.')
@@ -430,7 +422,7 @@ async function handleDirectMessage(params) {
   }
 
   // caveat: if a user is somehow in more than a single retro session,
-  // the first matching session on the list gets the feedback
+  // the first retro (chronologically) on the list gets the feedback
   const userId = params.event.user || params.event.previous_message?.user
   const retroChannel = retroChannels.filter(channel => retroList[channel].findUser(userId))[0]
   if (!retroChannel) {
@@ -440,15 +432,29 @@ async function handleDirectMessage(params) {
 
   debug('Collecting feedback for session in channel', retroChannel)
 
+  const newLineMsg = `:hand: Hold on - I only support single-line comments.
+You can edit this message :point_up:, or just write something new and I'll safely ignore this one.`
+
   const errMsg = `:hand: You can only send two types of feedbacks: \`+<something that went well>\`, or \`-<something that needs improvement>\``
   if (params.event.subtype === 'message_changed') {
+    if (params.message.message.text.indexOf('\n') !== -1) {
+      await params.say(newLineMsg)
+      return
+    }
     if (!retroList[retroChannel].updateFeedback(userId, params.message.message.ts, params.message.message.text)) {
       await params.say(errMsg)
     }
   } else if (params.event.subtype === 'message_deleted') {
     retroList[retroChannel].deleteFeedback(userId, params.message.deleted_ts)
-  } else if (!retroList[retroChannel].addFeedback(userId, params.message.ts, params.message.text)) {
-    await params.say(errMsg)
+  } else {
+    if (params.message.text.indexOf('\n') !== -1) {
+      await params.say(newLineMsg)
+      return
+    }
+    const res = retroList[retroChannel].addFeedback(userId, params.message.ts, params.message.text)
+    if (!res) {
+      await params.say(errMsg)
+    }
   }
 }
 

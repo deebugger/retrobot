@@ -12,13 +12,45 @@ This is a [bolt-js](https://www.npmjs.com/package/@slack/bolt) port of [Remy's R
 
 #### Create a new Slack app
 
-For this to work, you'll need to [create a Slack bot](https://slack.com/intl/en-il/help/articles/115005265703-Create-a-bot-for-your-workspace) and record its **bot token** and **signing secret**. The bot should have the appropriate **bot token scopes** (TBD list those scopes here) and be installed in your Slack workspace.
+For this to work, you'll need to [create a Slack bot](https://slack.com/intl/en-il/help/articles/115005265703-Create-a-bot-for-your-workspace).
 
-Give it the name `retrobot` (or any other name) - you'll use this name to reference Retrobot for doing its tasks.
+##### Creating a Slack app from a manifest file
 
-#### Run on Heroku (recommended)
+You can use the `resources/app-manifest.yml` file to quickly create a new Slack app in your workspace. Don't forget to update the `request_url` field with the URL of your deployed app (see below about deploying to Heroku).
 
-It's best to just install Retrobot on Heroku, where it can live inside a free web dyno and woken up as required. You can do it with a single click on this button below:
+Once you have created and installed the new app in your workspace, you should record its **bot token** (from the `OAuth & Permissions` page) and **signing secret** (from the `Basic Information` page).
+
+##### Creating a Slack app from scratch
+
+Follow these steps to manually create the app:
+
+1.  Select to create a new Slack app from scratch
+2.  Record the app's `Signing Secret` from the `Basic Information` page (this is your `SLACK_SIGNING_SECRET`)
+3.  In the `OAuth & Permissions` page:
+    1. Add the following scopes under the `Bot Token Scope` section:
+       - app_mentions:read
+       - channels:history
+       - channels:read
+       - chat:write
+       - dnd:read
+       - im:history
+       - reactions:read
+       - users:read
+    2. Under the `OAuth Tokens for Your Workspace` section, click `Install to Workspace` (follow the instruction there)
+    3. Record the `Bot User OAuth Token` that was created after the app insllation (this is your `SLACK_BOT_TOKEN`)
+4.  In the `App Home` page, under the `Show Tabs` section, check the `Allow users to send Slash commands and messages from the messages tab` checkbox
+5.  You can now deploy the app to Heroku using the two keys (see below about [deploying to Heroku](#deploy))
+6.  In the `Event Subscriptions` page:
+    1. Enable the events toggle; enter the URL of your bot's deployment and add `/slack/events` (e.g. `https://my-cool-retrobot.herokuapp.com/slack/events`)
+    2. In the same page, subscribe to the following bot events:
+       - app_mention
+       - message.channels
+       - message<span></span>.im
+7.  You'll need to reinstall the app - do it now (in the `Install App` page)
+
+#### <a name="deploy"></a>Deploy to Heroku (recommended)
+
+It's best to just install Retrobot on Heroku, where it can live inside a free web dyno and woken up as required. You can do it with a single click on this button below (opens in the same tab, so Cmd/Shift-click it):
 
 [![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/deebugger/retrobot)
 
