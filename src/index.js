@@ -128,8 +128,7 @@ async function handleStart(params) {
   await params.say(':military_helmet: We\'re starting a new retrospective session - helmets on!')
 
   const userList = await getConsciousUserList(params)
-  for (const index in userList) {
-    const user = userList[index]
+  for (const user of userList) {
     retroList[channelId].addUser(user)
     params.client.chat.postMessage({
       channel: user.userId,
@@ -215,10 +214,9 @@ async function handleStop(params) {
   retroList[channelId].stopRetro()
 
   const users = retroList[channelId].getUsers()
-  for (const index in users) {
-    const user = users[index]
+  for (const userId in users) {
     params.client.chat.postMessage({
-      channel: user.userId,
+      channel: userId,
       text: `:hand: We're done here!
 Get back to the retro channel at <#${channelId}>`
     }).catch(err => {
@@ -235,15 +233,15 @@ async function printFeedback(params) {
   await params.say(`====================================================================================================
 :sparkles: What worked well :sparkles:`)
   const workedWellFeedback = shuffleArray(retroList[channelId].getWorkedWellFeedback())
-  for (const index in workedWellFeedback) {
-    params.say(`${workedWellFeedback[index].text} (${workedWellFeedback[index].user.name})`)
+  for (const feedback of workedWellFeedback) {
+    await params.say(`${feedback.text} (${feedback.user.name})`)
   }
 
   await params.say(`====================================================================================================
 :construction: What needs improvement :construction:`)
   const needsImprovementFeedback = shuffleArray(retroList[channelId].getNeedsImprovementFeedback())
-  for (const index in needsImprovementFeedback) {
-    const msg = await params.say(`${needsImprovementFeedback[index].text} (${needsImprovementFeedback[index].user.name})`)
+  for (const feedback of needsImprovementFeedback) {
+    const msg = await params.say(`${feedback.text} (${feedback.user.name})`)
     retroList[channelId].trackMessage(msg)
   }
 
@@ -309,8 +307,7 @@ async function handleSummary(params) {
   await params.say(`:mega: Below are the ${numUpvotes} most voted-upon messages from the "Needs improvement" pile.
 
 Pro tip: You can discuss them and leave summaries and action items in each message's thread, to be followed-up in the next retro session.`)
-  for (const index in sortedPlusones) {
-    const msg = sortedPlusones[index]
+  for (const msg of sortedPlusones) {
     const numVotes = msg.plusones[0].count
     await params.say(`${':+1:'.repeat(numVotes)} ${msg.text}`)
   }
@@ -373,8 +370,7 @@ async function handleChannels(params) {
   const channels = Object.keys(retroList)
 
   await params.say(':mag_right: Here are the channels in which a retro session is currently in progress:')
-  for (const index in channels) {
-    const channelId = channels[index]
+  for (const channelId of channels) {
     params.say(`<#${channelId}> (${retroList[channelId].isInRetro() ? 'getting feedback' : 'voting'})`)
   }
 }
@@ -397,9 +393,9 @@ async function handleTerminateSession(params) {
   const channelId = params.payload.channel
 
   const users = retroList[channelId].getUsers()
-  for (const index in users) {
+  for (const userId in users) {
     params.client.chat.postMessage({
-      channel: users[index].userId,
+      channel: userId,
       text: `:warning: Someone has cut the session short!
 Get back to the retro channel at <#${channelId}>`
     }).catch(err => {
